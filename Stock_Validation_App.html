@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stock Validation Automation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#12181F; --slate:#4A5568; --faint:#8A94A3; --line:#E4E8ED;
+    --panel:#F7F9FB; --bg:#FFFFFF; --accent:#2F5DAA; --accentSoft:#EAF0FA;
+    --good:#1E8E5A; --goodSoft:#E7F5EE; --warn:#B7791F; --warnSoft:#FCF3DF;
+    --bad:#C13A3A; --badSoft:#FBEAEA;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;
+    background:var(--bg); color:var(--ink);
+  }
+  .wrap{ max-width:1120px; margin:0 auto; padding:28px 20px 60px; }
+  .brand{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .brand-icon{
+    width:34px; height:34px; border-radius:9px; background:var(--ink);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px;
+  }
+  h1{ font-size:21px; font-weight:700; margin:0; }
+  .sub{ font-size:13.5px; color:var(--slate); margin:0 0 22px; max-width:640px; line-height:1.5; }
+  .rules{
+    display:flex; gap:18px; flex-wrap:wrap; padding:12px 16px; background:var(--accentSoft);
+    border-radius:10px; margin-bottom:24px; font-size:12.5px; color:var(--accent);
+  }
+  .rule{ display:flex; align-items:center; gap:6px; }
+  .uploads{ display:flex; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+  .upload-card{
+    border:1.5px dashed var(--line); border-radius:12px; background:var(--panel);
+    padding:18px 16px; transition:all .15s ease; cursor:pointer; flex:1; min-width:220px;
+  }
+  .upload-card.drag{ border-color:var(--accent); background:var(--accentSoft); }
+  .upload-card.filled{ border-color:var(--good); background:var(--goodSoft); }
+  .upload-inner{ display:flex; align-items:flex-start; gap:12px; }
+  .upload-icon{
+    width:36px; height:36px; border-radius:9px; background:var(--accent); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px;
+  }
+  .upload-card.filled .upload-icon{ background:var(--good); }
+  .upload-label{ font-weight:650; font-size:14px; color:var(--ink); }
+  .upload-sub{ font-size:12px; color:var(--faint); margin-top:1px; }
+  .upload-file{
+    margin-top:8px; font-size:12.5px; color:var(--faint); font-weight:400;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:'JetBrains Mono',monospace;
+  }
+  .upload-card.filled .upload-file{ color:var(--good); font-weight:600; }
+  input[type=file]{ display:none; }
+  .run-btn{
+    display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border-radius:9px;
+    border:none; background:var(--line); color:var(--faint); font-weight:650; font-size:14px;
+    cursor:not-allowed; transition:all .15s ease;
+  }
+  .run-btn.ready{ background:var(--ink); color:#fff; cursor:pointer; }
+  .error-box{
+    margin-top:16px; padding:12px 14px; background:var(--badSoft); color:var(--bad);
+    border-radius:9px; font-size:13px; display:none; gap:8px; align-items:flex-start;
+  }
+  .metrics{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+  .metric{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:14px 16px; flex:1; min-width:120px;
+  }
+  .metric-label{ font-size:11.5px; color:var(--faint); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+  .metric-value{ font-size:26px; font-weight:700; margin-top:4px; font-family:'JetBrains Mono',monospace; }
+  .metric-value.good{ color:var(--good); }
+  .metric-value.bad{ color:var(--bad); }
+  .col-note{ font-size:12px; color:var(--faint); margin-bottom:20px; }
+  .col-note b{ font-family:'JetBrains Mono',monospace; font-weight:600; color:var(--slate); }
+  .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:14px; align-items:center; }
+  .tab-btn{
+    padding:8px 14px; font-size:13px; font-weight:600; background:none; border:none;
+    border-bottom:2px solid transparent; color:var(--faint); cursor:pointer;
+  }
+  .tab-btn.active{ border-bottom-color:var(--ink); color:var(--ink); }
+  .spacer{ flex:1; }
+  .dl-btn{
+    display:flex; align-items:center; gap:6px; padding:7px 13px; font-size:12.5px; font-weight:600;
+    border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer;
+  }
+  .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  thead tr{ background:var(--panel); text-align:left; }
+  th{ padding:9px 12px; font-weight:650; color:var(--slate); border-bottom:1px solid var(--line); white-space:nowrap; }
+  td{ padding:8px 12px; border-bottom:1px solid var(--line); }
+  tr:nth-child(even) td{ background:var(--bg); }
+  tr:nth-child(odd) td{ background:var(--panel); }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  .sku-cell{ font-weight:600; }
+  .name-cell{ color:var(--slate); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .diff-zero{ color:var(--faint); }
+  .diff-nonzero{ color:var(--bad); }
+  .pill{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px;
+    font-size:12px; font-weight:600; white-space:nowrap;
+  }
+  .pill.Match, .pill.OK{ background:var(--goodSoft); color:var(--good); }
+  .pill.Mismatch, .pill.Discrepancy{ background:var(--badSoft); color:var(--bad); }
+  .pill.NotFound{ background:var(--warnSoft); color:var(--warn); }
+  .empty-row td{ padding:28px 12px; text-align:center; color:var(--faint); }
+  .hint{ margin-top:30px; font-size:13px; color:var(--faint); display:flex; align-items:center; gap:8px; }
+  #results{ display:none; margin-top:30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="brand-icon">&#128230;</div>
+    <h1>Stock Validation</h1>
+  </div>
+  <p class="sub">
+    Cross-checks stock across Marketplace, Platform, and Warehouse. Marketplace SKUs are the
+    reference list; Warehouse is the source of truth when numbers disagree. Everything runs
+    locally in your browser — no files are uploaded anywhere.
+  </p>
+
+  <div class="rules">
+    <div class="rule">&rsaquo; SKU = Marketplace col F, falls back to Parent SKU (col E)</div>
+    <div class="rule">&rsaquo; Platform stock = SiAWMS-1 quantity (col K) only</div>
+    <div class="rule">&rsaquo; Warehouse = anchor for the correct stock value</div>
+  </div>
+
+  <div class="uploads">
+    <div class="upload-card" id="card-mp" onclick="document.getElementById('file-mp').click()">
+      <input type="file" id="file-mp" accept=".xlsx,.xls" />
+      <div class="upload-inner">
+        <div class="upload-icon">&#128230;</div>
+        <div>
+          <div class="upload-label">Marketplace</div>
+          <div class="upload-sub">Shopee export (.xlsx)</div>
+          <div class="upload-file" id="fname-mp">Click or drop file here</div>
+        </div>
+      </div>
+    </div>
+    <div class="upload-card" id="card-pl" onclick="document.getElementById('file-pl').click()">
+      <input type="file" id="file-pl" accept=".csv,.xlsx,.xls" />
+      <div class="upload-inner">
+        <div class="upload-icon">&#128279;</div>
+        <div>
+          <div class="upload-label">Platform</div>
+          <div class="upload-sub">Platform inventory (.csv / .xlsx)</div>
+          <div class="upload-file" id="fname-pl">Click or drop file here</div>
+        </div>
+      </div>
+    </div>
+    <div class="upload-card" id="card-wh" onclick="document.getElementById('file-wh').click()">
+      <input type="file" id="file-wh" accept=".xlsx,.xls" />
+      <div class="upload-inner">
+        <div class="upload-icon">&#128666;</div>
+        <div>
+          <div class="upload-label">Warehouse</div>
+          <div class="upload-sub">Warehouse report (.xlsx) — anchor</div>
+          <div class="upload-file" id="fname-wh">Click or drop file here</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runValidation()">&#9654; Run Stock Validation</button>
+
+  <div class="error-box" id="error-box"></div>
+
+  <div id="results">
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">Total SKU</div><div class="metric-value mono" id="m-total">0</div></div>
+      <div class="metric"><div class="metric-label">Matched</div><div class="metric-value good mono" id="m-ok">0</div></div>
+      <div class="metric"><div class="metric-label">Discrepancies</div><div class="metric-value bad mono" id="m-disc">0</div></div>
+      <div class="metric"><div class="metric-label">Marketplace mismatches</div><div class="metric-value mono" id="m-mp">0</div></div>
+      <div class="metric"><div class="metric-label">Platform mismatches</div><div class="metric-value mono" id="m-pl">0</div></div>
+    </div>
+    <div class="col-note">Platform stock computed from column: <b id="col-name"></b></div>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-disc" onclick="switchTab('discrepancy')">Discrepancy Result (0)</button>
+      <button class="tab-btn" id="tab-all" onclick="switchTab('all')">Working Process — all SKU (0)</button>
+      <div class="spacer"></div>
+      <button class="dl-btn" onclick="downloadCurrentTab()">&#8595; Download .xlsx</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>SKU</th><th>Product</th><th>SKU Source</th><th>Marketplace</th><th>Platform</th>
+            <th>Warehouse (anchor)</th><th>MP−WH</th><th>PLT−WH</th><th>MP Status</th><th>PLT Status</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">
+    &#8505; Upload the three files above, then run validation. Everything happens locally in your browser.
+  </div>
+
+</div>
+
+<script>
+let files = { mp: null, pl: null, wh: null };
+let comparison = [];
+let platformCol = "";
+let currentTab = "discrepancy";
+
+function norm(v){ if(v===null||v===undefined) return ""; return String(v).trim(); }
+function normLower(v){ return norm(v).toLowerCase(); }
+function toNum(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+function setupUpload(key, cardId, fnameId){
+  const input = document.getElementById('file-' + key);
+  const card = document.getElementById(cardId);
+  input.addEventListener('change', e => {
+    if(e.target.files && e.target.files[0]) setFile(key, e.target.files[0]);
+  });
+  card.addEventListener('dragover', e => { e.preventDefault(); card.classList.add('drag'); });
+  card.addEventListener('dragleave', () => card.classList.remove('drag'));
+  card.addEventListener('drop', e => {
+    e.preventDefault(); card.classList.remove('drag');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) setFile(key, e.dataTransfer.files[0]);
+  });
+}
+function setFile(key, file){
+  files[key] = file;
+  const card = document.getElementById('card-' + key);
+  const fname = document.getElementById('fname-' + key);
+  card.classList.add('filled');
+  fname.textContent = "✓ " + file.name;
+  updateRunButton();
+}
+function updateRunButton(){
+  const btn = document.getElementById('run-btn');
+  const ready = files.mp && files.pl && files.wh;
+  btn.classList.toggle('ready', !!ready);
+  btn.disabled = !ready;
+}
+setupUpload('mp', 'card-mp', 'fname-mp');
+setupUpload('pl', 'card-pl', 'fname-pl');
+setupUpload('wh', 'card-wh', 'fname-wh');
+
+function readFileAsSheetRows(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    const isCsv = file.name.toLowerCase().endsWith('.csv');
+    reader.onload = e => {
+      try {
+        const wb = isCsv
+          ? XLSX.read(e.target.result, { type: 'string' })
+          : XLSX.read(e.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+        resolve(rows);
+      } catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    if(isCsv) reader.readAsText(file); else reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseMarketplace(rows){
+  let headerRowIdx = -1;
+  for(let i=0; i<Math.min(rows.length,20); i++){
+    const rowLower = (rows[i]||[]).map(normLower);
+    if(rowLower.includes('parent sku') && rowLower.includes('sku')){ headerRowIdx = i; break; }
+  }
+  if(headerRowIdx === -1) throw new Error("Could not find the header row (expected 'Parent SKU' and 'SKU' columns).");
+  const header = (rows[headerRowIdx]||[]).map(normLower);
+  const find = label => { const idx = header.indexOf(label); if(idx===-1) throw new Error(`Could not find required column '${label}' in Marketplace file.`); return idx; };
+  const idxName = find('product name'), idxParent = find('parent sku'), idxSku = find('sku'),
+        idxStock = find('stock'), idxPid = find('product id');
+
+  const bySku = new Map();
+  for(let i=headerRowIdx+1; i<rows.length; i++){
+    const row = rows[i]||[];
+    const pid = row[idxPid];
+    if(pid===null||pid===undefined||norm(pid)===""||isNaN(parseFloat(pid))) continue;
+    const parentSku = norm(row[idxParent]);
+    const skuF = norm(row[idxSku]);
+    const finalSku = skuF!=="" ? skuF : parentSku;
+    if(finalSku==="") continue;
+    const skuSource = skuF!=="" ? "SKU (F)" : "Parent SKU (E)";
+    const stock = toNum(row[idxStock]);
+    const name = norm(row[idxName]);
+    if(bySku.has(finalSku)){ bySku.get(finalSku).marketplaceStock += stock; }
+    else { bySku.set(finalSku, { sku: finalSku, productName: name, skuSource, marketplaceStock: stock }); }
+  }
+  return Array.from(bySku.values());
+}
+
+function parseWarehouse(rows){
+  const header = (rows[0]||[]).map(normLower);
+  const findAny = (...cands) => { for(const c of cands){ const idx = header.indexOf(c); if(idx!==-1) return idx; } throw new Error(`Could not find any of [${cands.join(', ')}] in Warehouse file columns.`); };
+  const idxSku = findAny('internal reference','sku');
+  const idxQty = findAny('available quantity','quantity','stock');
+  const bySku = new Map();
+  for(let i=1; i<rows.length; i++){
+    const row = rows[i]||[];
+    const sku = norm(row[idxSku]);
+    if(sku==="") continue;
+    const qty = toNum(row[idxQty]);
+    bySku.set(sku, (bySku.get(sku)||0) + qty);
+  }
+  return bySku;
+}
+
+function parsePlatform(rows){
+  const header = (rows[0]||[]).map(normLower);
+  const idxSku = header.indexOf('sellersku');
+  if(idxSku===-1) throw new Error("Could not find 'sellerSKU' column in Platform file.");
+  let idxQty = header.findIndex(h => h.includes('siawms') && h.includes('quantity'));
+  let qtyColName = idxQty!==-1 ? rows[0][idxQty] : null;
+  if(idxQty===-1){
+    if(header.length>10){ idxQty = 10; qtyColName = rows[0][10]; }
+    else throw new Error("Could not find 'SiAWMS-1 quantity' column in Platform file.");
+  }
+  const bySku = new Map();
+  for(let i=1; i<rows.length; i++){
+    const row = rows[i]||[];
+    const sku = norm(row[idxSku]);
+    if(sku==="") continue;
+    const qty = toNum(row[idxQty]);
+    bySku.set(sku, (bySku.get(sku)||0) + qty);
+  }
+  return { map: bySku, colName: qtyColName };
+}
+
+function buildComparison(marketplaceRows, warehouseMap, platformMap){
+  const rows = marketplaceRows.map(mp => {
+    const foundWh = warehouseMap.has(mp.sku);
+    const foundPl = platformMap.has(mp.sku);
+    const whStock = foundWh ? warehouseMap.get(mp.sku) : 0;
+    const plStock = foundPl ? platformMap.get(mp.sku) : 0;
+    const mpDiff = mp.marketplaceStock - whStock;
+    const plDiff = plStock - whStock;
+    const mpStatus = !foundWh ? "SKU Not Found" : (mpDiff===0 ? "Match" : "Mismatch");
+    const plStatus = !foundPl ? "SKU Not Found" : (plDiff===0 ? "Match" : "Mismatch");
+    const discrepancyCount = (mpStatus!=="Match"?1:0) + (plStatus!=="Match"?1:0);
+    const overallStatus = discrepancyCount===0 ? "OK" : "Discrepancy";
+    return {
+      sku: mp.sku, productName: mp.productName, skuSource: mp.skuSource,
+      marketplaceStock: mp.marketplaceStock, platformStock: plStock, warehouseStock: whStock,
+      correctStock: whStock, mpDiff, plDiff, mpStatus, plStatus, discrepancyCount, overallStatus
+    };
+  });
+  rows.sort((a,b) => b.discrepancyCount - a.discrepancyCount || a.sku.localeCompare(b.sku));
+  return rows;
+}
+
+function pillClass(status){
+  if(status==="SKU Not Found") return "pill NotFound";
+  return "pill " + status;
+}
+
+function renderTable(rows){
+  const tbody = document.getElementById('table-body');
+  if(rows.length===0){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="10">No rows to show — no discrepancies found. 🎉</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td class="mono sku-cell">${r.sku}</td>
+      <td class="name-cell">${r.productName}</td>
+      <td>${r.skuSource}</td>
+      <td class="mono">${r.marketplaceStock}</td>
+      <td class="mono">${r.platformStock}</td>
+      <td class="mono" style="font-weight:650">${r.warehouseStock}</td>
+      <td class="mono ${r.mpDiff===0?'diff-zero':'diff-nonzero'}">${r.mpDiff>0?'+'+r.mpDiff:r.mpDiff}</td>
+      <td class="mono ${r.plDiff===0?'diff-zero':'diff-nonzero'}">${r.plDiff>0?'+'+r.plDiff:r.plDiff}</td>
+      <td><span class="${pillClass(r.mpStatus)}">${r.mpStatus}</span></td>
+      <td><span class="${pillClass(r.plStatus)}">${r.plStatus}</span></td>
+    </tr>
+  `).join('');
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  document.getElementById('tab-disc').classList.toggle('active', tab==='discrepancy');
+  document.getElementById('tab-all').classList.toggle('active', tab==='all');
+  const rows = tab==='discrepancy' ? comparison.filter(r => r.overallStatus==='Discrepancy') : comparison;
+  renderTable(rows);
+}
+
+function toExportRows(rows){
+  return rows.map(r => ({
+    SKU: r.sku, "Product Name": r.productName, SKU_Source: r.skuSource,
+    Marketplace_Stock: r.marketplaceStock, Platform_Stock: r.platformStock, Warehouse_Stock: r.warehouseStock,
+    "Correct_Stock (Warehouse anchor)": r.correctStock, MP_vs_WH_Diff: r.mpDiff, PLT_vs_WH_Diff: r.plDiff,
+    Marketplace_Status: r.mpStatus, Platform_Status: r.plStatus, Discrepancy_Count: r.discrepancyCount,
+    Overall_Status: r.overallStatus
+  }));
+}
+
+function downloadCurrentTab(){
+  const rows = currentTab==='discrepancy' ? comparison.filter(r => r.overallStatus==='Discrepancy') : comparison;
+  const data = toExportRows(rows);
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  const sheetName = currentTab==='discrepancy' ? 'Discrepancies' : 'Working Process';
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,31));
+  const filename = currentTab==='discrepancy' ? 'Stock_Validation_Discrepancy_Result.xlsx' : 'Stock_Validation_Working_Process.xlsx';
+  XLSX.writeFile(wb, filename);
+}
+
+function showError(msg){
+  const box = document.getElementById('error-box');
+  box.style.display = 'flex';
+  box.innerHTML = '&#10060;&nbsp; ' + msg;
+}
+function hideError(){
+  document.getElementById('error-box').style.display = 'none';
+}
+
+async function runValidation(){
+  if(!(files.mp && files.pl && files.wh)) return;
+  hideError();
+  const btn = document.getElementById('run-btn');
+  btn.textContent = 'Running...';
+  try{
+    const [mpRows, plRows, whRows] = await Promise.all([
+      readFileAsSheetRows(files.mp), readFileAsSheetRows(files.pl), readFileAsSheetRows(files.wh)
+    ]);
+    const marketplaceRows = parseMarketplace(mpRows);
+    const warehouseMap = parseWarehouse(whRows);
+    const { map: platformMap, colName } = parsePlatform(plRows);
+    comparison = buildComparison(marketplaceRows, warehouseMap, platformMap);
+    platformCol = colName;
+
+    const total = comparison.length;
+    const okCount = comparison.filter(r => r.overallStatus==='OK').length;
+    const discCount = comparison.filter(r => r.overallStatus==='Discrepancy').length;
+    const mpMismatch = comparison.filter(r => r.mpStatus!=='Match').length;
+    const plMismatch = comparison.filter(r => r.plStatus!=='Match').length;
+
+    document.getElementById('m-total').textContent = total;
+    document.getElementById('m-ok').textContent = okCount;
+    document.getElementById('m-disc').textContent = discCount;
+    document.getElementById('m-mp').textContent = mpMismatch;
+    document.getElementById('m-pl').textContent = plMismatch;
+    document.getElementById('col-name').textContent = platformCol;
+    document.getElementById('tab-disc').textContent = `Discrepancy Result (${discCount})`;
+    document.getElementById('tab-all').textContent = `Working Process — all SKU (${total})`;
+
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('hint').style.display = 'none';
+    switchTab('discrepancy');
+  } catch(e){
+    showError(e.message || String(e));
+    document.getElementById('results').style.display = 'none';
+  } finally {
+    btn.textContent = '▶ Run Stock Validation';
+  }
+}
+</script>
+</body>
+</html>
